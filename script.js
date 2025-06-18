@@ -61,12 +61,19 @@ class MechanicsSimulation {
     }
 
     updatePhysicsBodies() {
-        if (this.currentExperiment === 'collision') {
+        // Зачекаємо, поки тіла будуть готові
+        setTimeout(() => {
             const box1 = document.getElementById('box1');
             const box2 = document.getElementById('box2');
-            if (box1) box1.setAttribute('dynamic-body', 'mass', this.mass1Slider.value);
-            if (box2) box2.setAttribute('dynamic-body', 'mass', this.mass2Slider.value);
-        }
+            if (this.currentExperiment === 'collision') {
+                if (box1 && box1.body) {
+                    box1.setAttribute('dynamic-body', 'mass', this.mass1Slider.value);
+                }
+                if (box2 && box2.body) {
+                    box2.setAttribute('dynamic-body', 'mass', this.mass2Slider.value);
+                }
+            }
+        }, 100);
     }
     
     initML() {
@@ -98,7 +105,6 @@ class MechanicsSimulation {
         allExperiments.forEach(id => document.getElementById(id).setAttribute('visible', false));
         document.getElementById(`${experiment}-experiment`).setAttribute('visible', true);
         
-        // Керування видимістю параметрів
         document.getElementById('mass1-group').style.display = 'block';
         document.getElementById('mass2-group').style.display = 'none';
         document.getElementById('velocity-group').style.display = 'none';
@@ -122,6 +128,7 @@ class MechanicsSimulation {
                 document.getElementById('mass2-group').style.display = 'block';
                 document.getElementById('velocity-group').style.display = 'block';
                 document.getElementById('mass1-group').querySelector('label').innerHTML = 'Маса тіла 1 (кг): <span id="mass1-value">1</span>';
+                this.updatePhysicsBodies();
                 break;
             case 'energy':
                 this.totalEnergyP.style.display = 'block';
@@ -149,8 +156,13 @@ class MechanicsSimulation {
             const box1 = document.getElementById('box1');
             const box2 = document.getElementById('box2');
             
-            box1.body.velocity.set(velocity, 0, 0);
-            box2.body.velocity.set(-velocity, 0, 0);
+            // Переконуємось, що тіла готові перед наданням швидкості
+            if (box1.body && box2.body) {
+                box1.body.velocity.set(velocity, 0, 0);
+                box2.body.velocity.set(-velocity, 0, 0);
+            } else {
+                console.warn("Тіла для зіткнення ще не ініціалізовані.");
+            }
         }
         
         this.animationFrame = requestAnimationFrame(() => this.animate());
@@ -164,6 +176,7 @@ class MechanicsSimulation {
         switch(this.currentExperiment) {
             case 'projectile': this.runProjectileStep(); break;
             case 'pendulum': this.runPendulumStep(); break;
+            case 'collision': this.runCollisionStep(); break;
         }
 
         this.animationFrame = requestAnimationFrame(() => this.animate());
@@ -195,8 +208,7 @@ class MechanicsSimulation {
         
         this.resetBody(document.getElementById('box1'), {x: -5, y: 0.5, z: 0});
         this.resetBody(document.getElementById('box2'), {x: 5, y: 0.5, z: 0});
-        document.getElementById('text1').setAttribute('position', '-5 1.7 0');
-        document.getElementById('text2').setAttribute('position', '5 1.7 0');
+        this.runCollisionStep(); // Оновити позицію тексту після скидання
         this.updatePhysicsBodies();
 
         this.resetBody(document.getElementById('energy-ball1'), {x: -6, y: 2.8, z: 0});
@@ -212,6 +224,9 @@ class MechanicsSimulation {
             el.body.angularVelocity.set(0, 0, 0);
             el.setAttribute('position', pos);
             el.setAttribute('rotation', '0 0 0');
+        } else if (el) {
+            // Якщо тіло ще не готове, просто встановлюємо атрибут
+            el.setAttribute('position', pos);
         }
     }
     
@@ -291,6 +306,23 @@ class MechanicsSimulation {
         pendulum.setAttribute('position', `${x} ${y} 0`);
         string.setAttribute('line', 'end', `${x} ${y} 0`);
     }
+    
+    // НОВИЙ МЕТОД
+    runCollisionStep() {
+        const box1 = document.getElementById('box1');
+        const text1 = document.getElementById('text1');
+        const box2 = document.getElementById('box2');
+        const text2 = document.getElementById('text2');
+
+        if (box1 && text1 && box1.body) {
+            const pos1 = box1.getAttribute('position');
+            text1.setAttribute('position', `${pos1.x} 1.7 ${pos1.z}`);
+        }
+        if (box2 && text2 && box2.body) {
+            const pos2 = box2.getAttribute('position');
+            text2.setAttribute('position', `${pos2.x} 1.7 ${pos2.z}`);
+        }
+    }
 
     drawTrajectoryPoint(x, y) {
         const trajectory = document.getElementById('trajectory');
@@ -340,5 +372,8 @@ class MechanicsSimulation {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    new MechanicsSimulation();
+    // Невелика затримка, щоб фізичний рушій встиг ініціалізуватися
+    setTimeout(() => {
+        new MechanicsSimulation();
+    }, 500);
 });
