@@ -55,30 +55,26 @@ class MechanicsSimulation {
         this.switchExperiment('projectile');
     }
 
-    // Додаємо/видаляємо фізичні компоненти
-    managePhysicsComponents(add) {
-        const collisionBoxes = [document.getElementById('box1'), document.getElementById('box2')];
-        const energyBalls = [document.getElementById('energy-ball1'), document.getElementById('energy-ball2')];
+    // Ця функція видаляє фізичні компоненти з об'єктів.
+    // Використовується при скиданні експерименту.
+    removePhysicsComponents() {
+        const bodies = [
+            document.getElementById('box1'), 
+            document.getElementById('box2'),
+            document.getElementById('energy-ball1'), 
+            document.getElementById('energy-ball2')
+        ];
 
-        if (add) {
-            if (this.currentExperiment === 'collision') {
-                collisionBoxes[0].setAttribute('dynamic-body', `mass: ${this.mass1Slider.value}`);
-                collisionBoxes[1].setAttribute('dynamic-body', `mass: ${this.mass2Slider.value}`);
-            } else if (this.currentExperiment === 'energy') {
-                energyBalls[0].setAttribute('dynamic-body', 'mass: 1');
-                energyBalls[1].setAttribute('dynamic-body', 'mass: 1.5');
+        bodies.forEach(el => {
+            if (el && el.hasAttribute('dynamic-body')) {
+                el.removeAttribute('dynamic-body');
             }
-        } else {
-            [...collisionBoxes, ...energyBalls].forEach(el => {
-                if (el && el.hasAttribute('dynamic-body')) {
-                    el.removeAttribute('dynamic-body');
-                }
-            });
-        }
+        });
     }
     
+    // Оновлює масу тіл, якщо вони вже ініціалізовані
     updatePhysicsBodies() {
-        if (this.currentExperiment === 'collision') {
+        if (this.currentExperiment === 'collision' && this.isRunning) {
             const box1 = document.getElementById('box1');
             const box2 = document.getElementById('box2');
             if (box1 && box1.hasAttribute('dynamic-body')) box1.setAttribute('dynamic-body', 'mass', this.mass1Slider.value);
@@ -104,6 +100,7 @@ class MechanicsSimulation {
         allExperiments.forEach(id => document.getElementById(id).setAttribute('visible', false));
         document.getElementById(`${experiment}-experiment`).setAttribute('visible', true);
         
+        // Налаштування видимості UI елементів
         document.getElementById('mass1-group').style.display = 'block';
         document.getElementById('mass2-group').style.display = 'none';
         document.getElementById('velocity-group').style.display = 'none';
@@ -124,16 +121,13 @@ class MechanicsSimulation {
                 document.getElementById('mass1-group').querySelector('label').innerHTML = 'Маса (кг): <span id="mass1-value">1</span>';
                 break;
             case 'collision':
+                document.getElementById('mass2-group').style.display = 'block';
+                document.getElementById('velocity-group').style.display = 'block';
+                document.getElementById('mass1-group').querySelector('label').innerHTML = 'Маса тіла 1 (кг): <span id="mass1-value">1</span>';
+                break;
             case 'energy':
-                this.managePhysicsComponents(true); // Додаємо фізику
-                if (experiment === 'collision') {
-                    document.getElementById('mass2-group').style.display = 'block';
-                    document.getElementById('velocity-group').style.display = 'block';
-                    document.getElementById('mass1-group').querySelector('label').innerHTML = 'Маса тіла 1 (кг): <span id="mass1-value">1</span>';
-                } else {
-                    this.totalEnergyP.style.display = 'block';
-                    document.getElementById('mass1-group').style.display = 'none';
-                }
+                this.totalEnergyP.style.display = 'block';
+                document.getElementById('mass1-group').style.display = 'none';
                 break;
         }
     }
@@ -146,46 +140,62 @@ class MechanicsSimulation {
         }
     }
 
+    // *** КЛЮЧОВІ ЗМІНИ ТУТ ***
     startExperiment() {
-        // Невелика затримка, щоб A-frame встиг обробити доданий компонент
+        this.isRunning = true;
+        this.startTime = Date.now();
+        this.startBtn.textContent = 'Зупинити';
+
+        // 1. Додаємо фізичні компоненти ПРЯМО перед запуском
+        if (this.currentExperiment === 'collision') {
+            document.getElementById('box1').setAttribute('dynamic-body', `mass: ${this.mass1Slider.value}`);
+            document.getElementById('box2').setAttribute('dynamic-body', `mass: ${this.mass2Slider.value}`);
+        } else if (this.currentExperiment === 'energy') {
+            document.getElementById('energy-ball1').setAttribute('dynamic-body', 'mass: 1'); // Маси можна зробити налаштовуваними
+            document.getElementById('energy-ball2').setAttribute('dynamic-body', 'mass: 1.5');
+        } else if (this.currentExperiment === 'projectile') {
+            this.projectileVelocity = null;
+        }
+        
+        // 2. Даємо рушію час на ініціалізацію .body
         setTimeout(() => {
-            if (this.currentExperiment === 'collision' || this.currentExperiment === 'energy') {
-                const bodies = (this.currentExperiment === 'collision') 
-                    ? [document.getElementById('box1'), document.getElementById('box2')]
-                    : [document.getElementById('energy-ball1'), document.getElementById('energy-ball2')];
-                
-                if (!bodies[0].body || !bodies[1].body) {
-                    console.error("Тіла не ініціалізовано. Спробуйте ще раз.");
-                    return; // Не запускаємо експеримент
-                }
-            }
+            // Перевіряємо, чи експеримент ще запущено (користувач міг натиснути "Скинути")
+            if (!this.isRunning) return;
 
-            this.isRunning = true;
-            this.startTime = Date.now();
-            this.startBtn.textContent = 'Зупинити';
-
+            // 3. Надаємо початкові швидкості (тільки якщо потрібні)
             if (this.currentExperiment === 'collision') {
                 const velocity = parseFloat(this.velocitySlider.value);
-                document.getElementById('box1').body.velocity.set(velocity, 0, 0);
-                document.getElementById('box2').body.velocity.set(-velocity, 0, 0);
+                const box1 = document.getElementById('box1');
+                const box2 = document.getElementById('box2');
+                
+                // Перевіряємо, чи тіла були успішно ініціалізовані
+                if (box1.body && box2.body) {
+                    box1.body.velocity.set(velocity, 0, 0);
+                    box2.body.velocity.set(-velocity, 0, 0);
+                } else {
+                    console.error("Помилка ініціалізації фізичних тіл. Спробуйте ще раз.");
+                    this.stopExperiment();
+                    return;
+                }
             }
             
-            if (this.currentExperiment === 'projectile') {
-                this.projectileVelocity = null;
-            }
-            
+            // 4. Запускаємо цикл анімації
             this.animationFrame = requestAnimationFrame(() => this.animate());
-        }, 100);
+        }, 100); // 100ms - зазвичай достатньо
     }
 
     animate() {
         if (!this.isRunning) return;
+        
+        // Оновлення статистики та анімація виконуються в кожному кадрі
         this.updateStats();
         switch(this.currentExperiment) {
             case 'projectile': this.runProjectileStep(); break;
             case 'pendulum': this.runPendulumStep(); break;
             case 'collision': this.runCollisionStep(); break;
+            // для 'energy' окремий крок не потрібен, рушій робить все сам
         }
+        
         this.animationFrame = requestAnimationFrame(() => this.animate());
     }
 
@@ -198,10 +208,14 @@ class MechanicsSimulation {
         }
     }
     
+    // *** КЛЮЧОВІ ЗМІНИ ТУТ ***
     resetExperiment() {
         this.stopExperiment();
-        this.managePhysicsComponents(false); // Видаляємо фізику
         
+        // 1. Повністю видаляємо фізичні компоненти
+        this.removePhysicsComponents();
+        
+        // 2. Скидаємо позиції об'єктів
         this.resetBody(document.getElementById('box1'), {x: -5, y: 0.5, z: 0});
         this.resetBody(document.getElementById('box2'), {x: 5, y: 0.5, z: 0});
         document.getElementById('text1').setAttribute('position', '-5 1.7 0');
@@ -213,80 +227,114 @@ class MechanicsSimulation {
         document.getElementById('trajectory').innerHTML = '';
         this.trajectoryPoints = [];
         this.projectileVelocity = null;
-        document.getElementById('projectile').setAttribute('position', '-10 1 0');
+        this.resetBody(document.getElementById('projectile'), {x: -10, y: 1, z: 0});
         
         this.pendulumAngle = Math.PI / 6;
         this.pendulumVelocity = 0;
         this.updatePendulumLength();
         
         this.updateCannonAngle();
-        this.updateStats();
+        this.updateStats(true); // Примусове скидання статистики до нуля
     }
 
     resetBody(el, pos) {
-        if (el) el.setAttribute('position', pos);
+        if (el) {
+            el.setAttribute('position', pos);
+            // Також треба скинути швидкість, якщо тіло ще існує
+            if (el.body) {
+                el.body.velocity.set(0, 0, 0);
+                el.body.angularVelocity.set(0, 0, 0);
+            }
+        }
     }
     
-    updateStats() {
-        const time = this.isRunning ? ((Date.now() - this.startTime) / 1000).toFixed(2) : '0.00';
+    updateStats(forceReset = false) {
+        const time = (this.isRunning && !forceReset) ? ((Date.now() - this.startTime) / 1000).toFixed(2) : '0.00';
         document.getElementById('time').textContent = time;
+        
         let ke = 0, pe = 0;
-        if (this.currentExperiment === 'energy') {
+        
+        if (this.currentExperiment === 'energy' && this.isRunning) {
             const balls = [document.getElementById('energy-ball1'), document.getElementById('energy-ball2')];
             const gravity = parseFloat(this.gravitySlider.value);
+            
             balls.forEach(ball => {
+                // Важлива перевірка: .body існує тільки під час симуляції
                 if (ball && ball.body) {
                     const mass = ball.body.mass;
                     const pos = ball.getAttribute('position');
                     const vel = ball.body.velocity;
                     const v = vel.length();
                     ke += 0.5 * mass * v * v;
-                    pe += mass * gravity * pos.y;
+                    pe += mass * gravity * (pos.y - 0.3); // -0.3 для врахування радіусу
                 }
             });
             document.getElementById('total-energy').textContent = (ke + pe).toFixed(2);
         }
+        
         document.getElementById('kinetic-energy').textContent = ke.toFixed(2);
         document.getElementById('potential-energy').textContent = pe.toFixed(2);
+        if (forceReset) document.getElementById('total-energy').textContent = '0.00';
     }
     
     runProjectileStep() {
         const projectile = document.getElementById('projectile');
-        if (!projectile) return;
+        if (!projectile || !this.isRunning) return;
+        
         const pos = projectile.getAttribute('position');
         const gravity = parseFloat(this.gravitySlider.value);
-        const dt = 0.016;
+        const dt = 0.016; // Приблизний час кадру
+        
         if (!this.projectileVelocity) {
             const velocity = parseFloat(this.velocitySlider.value);
             const angle = parseFloat(this.angleSlider.value) * Math.PI / 180;
             this.projectileVelocity = { x: velocity * Math.cos(angle), y: velocity * Math.sin(angle) };
         }
+        
         let vel = this.projectileVelocity;
         pos.x += vel.x * dt;
         pos.y += vel.y * dt;
         vel.y -= gravity * dt;
+        
         projectile.setAttribute('position', `${pos.x} ${pos.y} 0`);
+        
         if (Date.now() - (this.lastPointTime || 0) > 100) {
             this.drawTrajectoryPoint(pos.x, pos.y);
             this.lastPointTime = Date.now();
         }
-        if (pos.y <= 0.3) this.stopExperiment();
+        
+        if (pos.y <= 0.3) {
+            this.stopExperiment();
+        }
     }
 
     runPendulumStep() {
-        const pendulum = document.getElementById('pendulum-ball'), string = document.getElementById('pendulum-string');
-        const length = parseFloat(this.lengthSlider.value), gravity = parseFloat(this.gravitySlider.value), dt = 0.016;
+        const pendulum = document.getElementById('pendulum-ball');
+        const string = document.getElementById('pendulum-string');
+        if (!pendulum || !this.isRunning) return;
+
+        const length = parseFloat(this.lengthSlider.value);
+        const gravity = parseFloat(this.gravitySlider.value);
+        const dt = 0.016;
+        
         const acceleration = -(gravity / length) * Math.sin(this.pendulumAngle);
         this.pendulumVelocity += acceleration * dt;
         this.pendulumAngle += this.pendulumVelocity * dt;
-        const x = length * Math.sin(this.pendulumAngle), y = 5 - length * Math.cos(this.pendulumAngle);
+        
+        const x = length * Math.sin(this.pendulumAngle);
+        const y = 5 - length * Math.cos(this.pendulumAngle);
+        
         pendulum.setAttribute('position', `${x} ${y} 0`);
         string.setAttribute('line', 'end', `${x} ${y} 0`);
     }
 
+    // Тепер ця функція просто оновлює позицію тексту, слідуючи за боксами
     runCollisionStep() {
-        const box1 = document.getElementById('box1'), text1 = document.getElementById('text1');
-        const box2 = document.getElementById('box2'), text2 = document.getElementById('text2');
+        const box1 = document.getElementById('box1');
+        const text1 = document.getElementById('text1');
+        const box2 = document.getElementById('box2');
+        const text2 = document.getElementById('text2');
+
         if (box1 && text1) text1.setAttribute('position', `${box1.getAttribute('position').x} 1.7 0`);
         if (box2 && text2) text2.setAttribute('position', `${box2.getAttribute('position').x} 1.7 0`);
     }
@@ -305,8 +353,10 @@ class MechanicsSimulation {
 
     updatePendulumLength() {
         if (this.isRunning) return;
-        const length = parseFloat(this.lengthSlider.value), angle = this.pendulumAngle;
-        const x = length * Math.sin(angle), y = 5 - length * Math.cos(angle);
+        const length = parseFloat(this.lengthSlider.value);
+        const angle = this.pendulumAngle;
+        const x = length * Math.sin(angle);
+        const y = 5 - length * Math.cos(angle);
         document.getElementById('pendulum-ball').setAttribute('position', `${x} ${y} 0`);
         document.getElementById('pendulum-string').setAttribute('line', 'end', `${x} ${y} 0`);
     }
