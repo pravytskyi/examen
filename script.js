@@ -61,19 +61,23 @@ class MechanicsSimulation {
     }
 
     updatePhysicsBodies() {
-        // Зачекаємо, поки тіла будуть готові
-        setTimeout(() => {
-            const box1 = document.getElementById('box1');
-            const box2 = document.getElementById('box2');
-            if (this.currentExperiment === 'collision') {
-                if (box1 && box1.body) {
-                    box1.setAttribute('dynamic-body', 'mass', this.mass1Slider.value);
-                }
-                if (box2 && box2.body) {
-                    box2.setAttribute('dynamic-body', 'mass', this.mass2Slider.value);
-                }
-            }
-        }, 100);
+        // Для зіткнення
+        const box1 = document.getElementById('box1');
+        const box2 = document.getElementById('box2');
+        if (box1 && box1.body) {
+            box1.setAttribute('dynamic-body', 'mass', this.mass1Slider.value);
+        }
+        if (box2 && box2.body) {
+            box2.setAttribute('dynamic-body', 'mass', this.mass2Slider.value);
+        }
+
+        // Для енергії
+        const energyBall1 = document.getElementById('energy-ball1');
+        const energyBall2 = document.getElementById('energy-ball2');
+        if (energyBall1 && energyBall1.body) {
+            // Маси для цього експерименту задані в HTML, але можна зробити їх динамічними
+            // energyBall1.setAttribute('dynamic-body', 'mass', newValue);
+        }
     }
     
     initML() {
@@ -105,6 +109,7 @@ class MechanicsSimulation {
         allExperiments.forEach(id => document.getElementById(id).setAttribute('visible', false));
         document.getElementById(`${experiment}-experiment`).setAttribute('visible', true);
         
+        // Керування видимістю параметрів
         document.getElementById('mass1-group').style.display = 'block';
         document.getElementById('mass2-group').style.display = 'none';
         document.getElementById('velocity-group').style.display = 'none';
@@ -156,12 +161,9 @@ class MechanicsSimulation {
             const box1 = document.getElementById('box1');
             const box2 = document.getElementById('box2');
             
-            // Переконуємось, що тіла готові перед наданням швидкості
             if (box1.body && box2.body) {
                 box1.body.velocity.set(velocity, 0, 0);
                 box2.body.velocity.set(-velocity, 0, 0);
-            } else {
-                console.warn("Тіла для зіткнення ще не ініціалізовані.");
             }
         }
         
@@ -177,6 +179,7 @@ class MechanicsSimulation {
             case 'projectile': this.runProjectileStep(); break;
             case 'pendulum': this.runPendulumStep(); break;
             case 'collision': this.runCollisionStep(); break;
+            // Для 'energy' не потрібен окремий step, все робить updateStats і рушій
         }
 
         this.animationFrame = requestAnimationFrame(() => this.animate());
@@ -206,18 +209,20 @@ class MechanicsSimulation {
         this.pendulumVelocity = 0;
         this.updatePendulumLength();
         
+        // Скидання для зіткнення
         this.resetBody(document.getElementById('box1'), {x: -5, y: 0.5, z: 0});
         this.resetBody(document.getElementById('box2'), {x: 5, y: 0.5, z: 0});
-        this.runCollisionStep(); // Оновити позицію тексту після скидання
-        this.updatePhysicsBodies();
-
+        document.getElementById('text1').setAttribute('position', '-5 1.7 0');
+        document.getElementById('text2').setAttribute('position', '5 1.7 0');
+        
+        // Скидання для енергії
         this.resetBody(document.getElementById('energy-ball1'), {x: -6, y: 2.8, z: 0});
         this.resetBody(document.getElementById('energy-ball2'), {x: 5.5, y: 2.5, z: 0});
         
+        this.updatePhysicsBodies();
         this.updateCannonAngle();
-        this.updateStats();
+        this.updateStats(); // Оновлює показники до нульових значень
     }
-
     resetBody(el, pos) {
         if (el && el.body) {
             el.body.velocity.set(0, 0, 0);
@@ -308,7 +313,7 @@ class MechanicsSimulation {
     }
     
     // НОВИЙ МЕТОД
-    runCollisionStep() {
+   runCollisionStep() {
         const box1 = document.getElementById('box1');
         const text1 = document.getElementById('text1');
         const box2 = document.getElementById('box2');
@@ -316,11 +321,11 @@ class MechanicsSimulation {
 
         if (box1 && text1 && box1.body) {
             const pos1 = box1.getAttribute('position');
-            text1.setAttribute('position', `${pos1.x} 1.7 ${pos1.z}`);
+            text1.setAttribute('position', { x: pos1.x, y: 1.7, z: pos1.z });
         }
         if (box2 && text2 && box2.body) {
             const pos2 = box2.getAttribute('position');
-            text2.setAttribute('position', `${pos2.x} 1.7 ${pos2.z}`);
+            text2.setAttribute('position', { x: pos2.x, y: 1.7, z: pos2.z });
         }
     }
 
