@@ -1,0 +1,283 @@
+/* Загальні стилі */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Панель керування */
+#control-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 320px;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 20px;
+    overflow-y: auto;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    transition: transform 0.3s ease;
+}
+
+#control-panel h2 {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 24px;
+    text-align: center;
+}
+
+#control-panel h3 {
+    color: #555;
+    margin: 15px 0 10px;
+    font-size: 18px;
+}
+
+/* Селектор експериментів */
+.experiment-selector {
+    margin-bottom: 20px;
+}
+
+.experiment-selector label {
+    display: block;
+    margin-bottom: 5px;
+    color: #666;
+    font-weight: bold;
+}
+
+.experiment-selector select {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+
+.experiment-selector select:hover {
+    border-color: #4ECDC4;
+}
+
+/* Параметри */
+.parameters {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.param-group {
+    margin-bottom: 15px;
+}
+
+.param-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #555;
+    font-size: 14px;
+}
+
+.param-group input[type="range"] {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: #ddd;
+    outline: none;
+    cursor: pointer;
+}
+
+.param-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #4ECDC4;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.param-group input[type="range"]::-webkit-slider-thumb:hover {
+    background: #45B7B8;
+}
+
+/* Кнопки керування */
+.controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+button {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background: #4ECDC4;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #45B7B8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(78, 205, 196, 0.3);
+}
+
+.btn-secondary {
+    background: #FF6B6B;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #FF5252;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3);
+}
+
+.btn-ml {
+    background: #95E1D3;
+    color: #333;
+}
+
+.btn-ml:hover {
+    background: #81D4C8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(149, 225, 211, 0.3);
+}
+
+/* Статистика */
+#stats {
+    background: #f0f4f8;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+#stats-content p {
+    margin: 8px 0;
+    color: #666;
+    font-size: 14px;
+}
+
+#stats-content span {
+    font-weight: bold;
+    color: #333;
+}
+
+/* ML прогнозування */
+#ml-prediction {
+    background: #e8f5f2;
+    padding: 15px;
+    border-radius: 10px;
+    border: 2px solid #95E1D3;
+}
+
+#ml-prediction p {
+    margin: 8px 0;
+    color: #666;
+    font-size: 14px;
+}
+
+#ml-prediction span {
+    font-weight: bold;
+    color: #2d7a68;
+}
+
+/* Мобільна адаптація */
+@media (max-width: 768px) {
+    #control-panel {
+        width: 100%;
+        height: auto;
+        max-height: 50vh;
+        bottom: 0;
+        top: auto;
+        transform: translateY(calc(100% - 60px));
+        border-radius: 20px 20px 0 0;
+    }
+    
+    #control-panel::before {
+        content: '';
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40px;
+        height: 4px;
+        background: #ccc;
+        border-radius: 2px;
+    }
+    
+    #control-panel.expanded {
+        transform: translateY(0);
+    }
+    
+    .controls {
+        flex-direction: column;
+    }
+    
+    button {
+        width: 100%;
+    }
+}
+
+/* Додаткові анімації */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.active-object {
+    animation: pulse 2s infinite;
+}
+
+/* Скролбар стилізація */
+#control-panel::-webkit-scrollbar {
+    width: 8px;
+}
+
+#control-panel::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#control-panel::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+#control-panel::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Тач-жести для мобільних */
+@media (hover: none) and (pointer: coarse) {
+    button {
+        padding: 15px;
+    }
+    
+    input[type="range"] {
+        height: 10px;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+        width: 30px;
+        height: 30px;
+    }
+}
