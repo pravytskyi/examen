@@ -137,7 +137,7 @@ class MechanicsSimulation {
         
         let angle = Math.PI / 4;
         let angVelocity = 0;
-        const pivotY = 5; // Висота точки підвісу
+        const pivotY = 5;
 
         const animate = () => {
             if (!this.isRunning) return;
@@ -168,28 +168,42 @@ class MechanicsSimulation {
         const text1El = document.getElementById('text1');
         const text2El = document.getElementById('text2');
         
+        // --- ВИПРАВЛЕННЯ ТУТ ---
+        // Зчитуємо масу ОДИН РАЗ на початку симуляції.
+        const m1 = parseFloat(this.mass1Slider.value);
+        const m2 = parseFloat(this.mass2Slider.value);
+        const initial_v = parseFloat(this.velocitySlider.value);
+
         let x1 = -5, x2 = 5;
-        let v1 = parseFloat(this.velocitySlider.value);
-        let v2 = -v1;
+        let v1 = initial_v, v2 = -initial_v;
         let collisionCount = 0;
 
-        const leftWallX = -15 + 0.5, rightWallX = 15 - 0.5;
-        const timeStep = 0.001, stepsPerFrame = 15;
+        const leftWallX = -15 + 0.5;
+        const rightWallX = 15 - 0.5;
+        const boxWidth = 1.0;
+
+        const timeStep = 0.001;
+        const stepsPerFrame = 15;
 
         const animate = () => {
             if (!this.isRunning) return;
-            const m1 = parseFloat(this.mass1Slider.value);
-            const m2 = parseFloat(this.mass2Slider.value);
 
+            // Тепер маси m1 та m2 є константами всередині цього циклу
             for (let i = 0; i < stepsPerFrame; i++) {
-                if (x2 - x1 <= 1.0 && v1 > v2) {
+                if (x2 - x1 <= boxWidth && v1 > v2) {
                     collisionCount++;
                     const u1 = v1, u2 = v2;
                     v1 = (u1 * (m1 - m2) + 2 * m2 * u2) / (m1 + m2);
                     v2 = (u2 * (m2 - m1) + 2 * m1 * u1) / (m1 + m2);
                 }
-                if (x1 <= leftWallX && v1 < 0) { v1 = -v1; }
-                if (x2 >= rightWallX && v2 > 0) { v2 = -v2; }
+                if (x1 <= leftWallX && v1 < 0) {
+                    collisionCount++;
+                    v1 = -v1;
+                }
+                if (x2 >= rightWallX && v2 > 0) {
+                    collisionCount++;
+                    v2 = -v2;
+                }
                 x1 += v1 * timeStep;
                 x2 += v2 * timeStep;
             }
@@ -198,8 +212,10 @@ class MechanicsSimulation {
             box2El.object3D.position.x = x2;
             text1El.object3D.position.x = x1;
             text2El.object3D.position.x = x2;
+            
             this.collisionsSpan.textContent = collisionCount;
-            this.updateStats({ v1, v2 });
+            // Передаємо m1 та m2 в статистику
+            this.updateStats({ v1, v2, m1, m2 });
 
             this.animationFrame = requestAnimationFrame(animate);
         };
@@ -247,29 +263,31 @@ class MechanicsSimulation {
         
         let velocity = 0, height = 0, ke = 0, pe = 0, totalEnergy = 0;
         const g = parseFloat(this.gravitySlider.value);
-        const m1 = parseFloat(this.mass1Slider.value);
-        const m2 = parseFloat(this.mass2Slider.value);
         
         switch(this.currentExperiment) {
             case 'projectile':
-                height = data.y;
+                const m_proj = parseFloat(this.mass1Slider.value);
+                height = data.y > 0 ? data.y - 0.3 : 0;
                 velocity = Math.sqrt(data.vx*data.vx + data.vy*data.vy);
-                pe = m1 * g * (height - 0.3); // -0.3 для нульового рівня на землі
-                ke = 0.5 * m1 * velocity * velocity;
+                pe = m_proj * g * height;
+                ke = 0.5 * m_proj * velocity * velocity;
                 break;
             case 'pendulum':
+                const m_pend = parseFloat(this.mass1Slider.value);
                 const lowestPoint = data.pivotY - data.length;
-                height = data.y - lowestPoint; // Висота відносно найнижчої точки
+                height = data.y - lowestPoint;
                 velocity = data.v;
-                pe = m1 * g * height;
-                ke = 0.5 * m1 * velocity * velocity;
+                pe = m_pend * g * height;
+                ke = 0.5 * m_pend * velocity * velocity;
                 break;
             case 'collision':
-                height = 0; // На землі немає потенційної енергії
-                // Рахуємо сумарну кінетичну енергію системи
-                ke = 0.5 * m1 * data.v1*data.v1 + 0.5 * m2 * data.v2*data.v2;
-                pe = 0;
-                velocity = (Math.abs(data.v1) + Math.abs(data.v2)) / 2; // Середня швидкість
+                // --- ВИПРАВЛЕННЯ ТУТ ---
+                // Тепер ми беремо маси з об'єкта `data`, що передається з циклу
+                const { m1, m2, v1, v2 } = data;
+                height = 0;
+                ke = 0.5 * m1 * v1*v1 + 0.5 * m2 * v2*v2;
+                pe = (m1 + m2) * g * 0.5; // Невелика потенційна енергія, бо вони не на нульовій висоті
+                velocity = (Math.abs(v1) + Math.abs(v2)) / 2;
                 break;
         }
         
