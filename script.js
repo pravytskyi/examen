@@ -6,7 +6,6 @@ class MechanicsSimulation {
         this.animationFrame = null;
         this.trajectoryPoints = [];
         this.mlModel = null;
-        this.trainingData = [];
         this.pendulumAngle = Math.PI / 6;
         this.pendulumVelocity = 0;
         
@@ -55,40 +54,17 @@ class MechanicsSimulation {
         this.predictBtn.addEventListener('click', () => this.predictTrajectory());
         this.experimentSelect.addEventListener('change', (e) => this.switchExperiment(e.target.value));
         
-        this.initML();
         this.createGrid();
         this.switchExperiment('projectile');
     }
 
     updatePhysicsBodies() {
-        // Для зіткнення
-        const box1 = document.getElementById('box1');
-        const box2 = document.getElementById('box2');
-        if (box1 && box1.body) {
-            box1.setAttribute('dynamic-body', 'mass', this.mass1Slider.value);
+        if (this.currentExperiment === 'collision') {
+            const box1 = document.getElementById('box1');
+            const box2 = document.getElementById('box2');
+            if (box1 && box1.body) box1.setAttribute('dynamic-body', 'mass', this.mass1Slider.value);
+            if (box2 && box2.body) box2.setAttribute('dynamic-body', 'mass', this.mass2Slider.value);
         }
-        if (box2 && box2.body) {
-            box2.setAttribute('dynamic-body', 'mass', this.mass2Slider.value);
-        }
-
-        // Для енергії
-        const energyBall1 = document.getElementById('energy-ball1');
-        const energyBall2 = document.getElementById('energy-ball2');
-        if (energyBall1 && energyBall1.body) {
-            // Маси для цього експерименту задані в HTML, але можна зробити їх динамічними
-            // energyBall1.setAttribute('dynamic-body', 'mass', newValue);
-        }
-    }
-    
-    initML() {
-        this.mlModel = tf.sequential({
-            layers: [
-                tf.layers.dense({inputShape: [4], units: 10, activation: 'relu'}),
-                tf.layers.dense({units: 10, activation: 'relu'}),
-                tf.layers.dense({units: 2})
-            ]
-        });
-        this.mlModel.compile({ optimizer: 'adam', loss: 'meanSquaredError' });
     }
     
     createGrid() {
@@ -109,7 +85,6 @@ class MechanicsSimulation {
         allExperiments.forEach(id => document.getElementById(id).setAttribute('visible', false));
         document.getElementById(`${experiment}-experiment`).setAttribute('visible', true);
         
-        // Керування видимістю параметрів
         document.getElementById('mass1-group').style.display = 'block';
         document.getElementById('mass2-group').style.display = 'none';
         document.getElementById('velocity-group').style.display = 'none';
@@ -133,7 +108,6 @@ class MechanicsSimulation {
                 document.getElementById('mass2-group').style.display = 'block';
                 document.getElementById('velocity-group').style.display = 'block';
                 document.getElementById('mass1-group').querySelector('label').innerHTML = 'Маса тіла 1 (кг): <span id="mass1-value">1</span>';
-                this.updatePhysicsBodies();
                 break;
             case 'energy':
                 this.totalEnergyP.style.display = 'block';
@@ -141,6 +115,7 @@ class MechanicsSimulation {
                 break;
         }
         document.getElementById('mass1-value').textContent = this.mass1Slider.value;
+        this.updatePhysicsBodies();
     }
     
     toggleExperiment() {
@@ -151,7 +126,31 @@ class MechanicsSimulation {
         }
     }
     
-    startExperiment() {
+    // =========================================================================
+    // ОСНОВНЕ ВИПРАВЛЕННЯ ТУТ
+    // Цей метод тепер чекає, поки фізика буде готова, перш ніж почати
+    // =========================================================================
+    startExperiment(retryCount = 0) {
+        if (this.isRunning) return;
+
+        // --- Перевірка для експерименту зіткнення ---
+        if (this.currentExperiment === 'collision') {
+            const box1 = document.getElementById('box1');
+            const box2 = document.getElementById('box2');
+
+            if (!box1.body || !box2.body) {
+                if (retryCount < 15) { // Робимо до 15 спроб (3 секунди)
+                    console.warn(`Фізичні тіла не готові. Повторна спроба... (${retryCount + 1})`);
+                    setTimeout(() => this.startExperiment(retryCount + 1), 200);
+                    return;
+                } else {
+                    console.error("Не вдалося ініціалізувати тіла для зіткнення.");
+                    alert("Помилка: Не вдалося завантажити фізику. Будь ласка, оновіть сторінку.");
+                    return;
+                }
+            }
+        }
+
         this.isRunning = true;
         this.startTime = Date.now();
         this.startBtn.textContent = 'Зупинити';
@@ -161,10 +160,12 @@ class MechanicsSimulation {
             const box1 = document.getElementById('box1');
             const box2 = document.getElementById('box2');
             
-            if (box1.body && box2.body) {
-                box1.body.velocity.set(velocity, 0, 0);
-                box2.body.velocity.set(-velocity, 0, 0);
-            }
+            box1.body.velocity.set(velocity, 0, 0);
+            box2.body.velocity.set(-velocity, 0, 0);
+        }
+        
+        if (this.currentExperiment === 'projectile') {
+            this.projectileVelocity = null; // Скидаємо, щоб розрахувати заново
         }
         
         this.animationFrame = requestAnimationFrame(() => this.animate());
@@ -179,7 +180,6 @@ class MechanicsSimulation {
             case 'projectile': this.runProjectileStep(); break;
             case 'pendulum': this.runPendulumStep(); break;
             case 'collision': this.runCollisionStep(); break;
-            // Для 'energy' не потрібен окремий step, все робить updateStats і рушій
         }
 
         this.animationFrame = requestAnimationFrame(() => this.animate());
@@ -191,9 +191,6 @@ class MechanicsSimulation {
         if (this.animationFrame) {
             cancelAnimationFrame(this.animationFrame);
             this.animationFrame = null;
-        }
-        if (this.currentExperiment === 'projectile' && this.trajectoryPoints.length > 0) {
-            this.saveTrainingData();
         }
     }
     
@@ -209,20 +206,18 @@ class MechanicsSimulation {
         this.pendulumVelocity = 0;
         this.updatePendulumLength();
         
-        // Скидання для зіткнення
         this.resetBody(document.getElementById('box1'), {x: -5, y: 0.5, z: 0});
         this.resetBody(document.getElementById('box2'), {x: 5, y: 0.5, z: 0});
         document.getElementById('text1').setAttribute('position', '-5 1.7 0');
         document.getElementById('text2').setAttribute('position', '5 1.7 0');
         
-        // Скидання для енергії
         this.resetBody(document.getElementById('energy-ball1'), {x: -6, y: 2.8, z: 0});
         this.resetBody(document.getElementById('energy-ball2'), {x: 5.5, y: 2.5, z: 0});
         
-        this.updatePhysicsBodies();
         this.updateCannonAngle();
-        this.updateStats(); // Оновлює показники до нульових значень
+        this.updateStats();
     }
+
     resetBody(el, pos) {
         if (el && el.body) {
             el.body.velocity.set(0, 0, 0);
@@ -230,7 +225,6 @@ class MechanicsSimulation {
             el.setAttribute('position', pos);
             el.setAttribute('rotation', '0 0 0');
         } else if (el) {
-            // Якщо тіло ще не готове, просто встановлюємо атрибут
             el.setAttribute('position', pos);
         }
     }
@@ -257,36 +251,37 @@ class MechanicsSimulation {
             });
             totalEnergy = ke + pe;
             document.getElementById('total-energy').textContent = totalEnergy.toFixed(2);
+            document.getElementById('kinetic-energy').textContent = ke.toFixed(2);
+            document.getElementById('potential-energy').textContent = pe.toFixed(2);
         } else {
-             // ... логіка для інших експериментів (можна додати за потреби)
+            // Можна очищувати поля, якщо експеримент не про енергію
+            document.getElementById('kinetic-energy').textContent = '0.00';
+            document.getElementById('potential-energy').textContent = '0.00';
+            document.getElementById('total-energy').textContent = '0.00';
         }
-        
-        document.getElementById('kinetic-energy').textContent = ke.toFixed(2);
-        document.getElementById('potential-energy').textContent = pe.toFixed(2);
     }
     
     runProjectileStep() {
         const projectile = document.getElementById('projectile');
+        if (!projectile) return;
         const pos = projectile.getAttribute('position');
-        const vel = this.projectileVelocity;
         const gravity = parseFloat(this.gravitySlider.value);
-        const dt = 0.016;
+        const dt = 0.016; // Приблизний час кадру
 
-        if (!vel) {
+        if (!this.projectileVelocity) {
             const velocity = parseFloat(this.velocitySlider.value);
             const angle = parseFloat(this.angleSlider.value) * Math.PI / 180;
             this.projectileVelocity = { x: velocity * Math.cos(angle), y: velocity * Math.sin(angle) };
             this.trajectoryPoints = [];
-            return;
         }
 
+        let vel = this.projectileVelocity;
         pos.x += vel.x * dt;
         pos.y += vel.y * dt;
         vel.y -= gravity * dt;
         projectile.setAttribute('position', `${pos.x} ${pos.y} 0`);
 
         if (this.trajectoryPoints.length === 0 || Date.now() - (this.lastPointTime || 0) > 100) {
-            this.trajectoryPoints.push({x: pos.x, y: pos.y});
             this.drawTrajectoryPoint(pos.x, pos.y);
             this.lastPointTime = Date.now();
         }
@@ -311,21 +306,20 @@ class MechanicsSimulation {
         pendulum.setAttribute('position', `${x} ${y} 0`);
         string.setAttribute('line', 'end', `${x} ${y} 0`);
     }
-    
-    // НОВИЙ МЕТОД
-   runCollisionStep() {
+
+    runCollisionStep() {
         const box1 = document.getElementById('box1');
         const text1 = document.getElementById('text1');
         const box2 = document.getElementById('box2');
         const text2 = document.getElementById('text2');
 
-        if (box1 && text1 && box1.body) {
+        if (box1 && text1) {
             const pos1 = box1.getAttribute('position');
-            text1.setAttribute('position', { x: pos1.x, y: 1.7, z: pos1.z });
+            text1.setAttribute('position', `${pos1.x} 1.7 ${pos1.z}`);
         }
-        if (box2 && text2 && box2.body) {
+        if (box2 && text2) {
             const pos2 = box2.getAttribute('position');
-            text2.setAttribute('position', { x: pos2.x, y: 1.7, z: pos2.z });
+            text2.setAttribute('position', `${pos2.x} 1.7 ${pos2.z}`);
         }
     }
 
@@ -355,30 +349,39 @@ class MechanicsSimulation {
         string.setAttribute('line', 'end', `${x} ${y} 0`);
     }
 
-    async predictTrajectory() {
+    predictTrajectory() {
+        // ML частина залишається як була
         if (this.currentExperiment !== 'projectile') {
             alert('ML прогнозування доступне тільки для балістичного руху');
             return;
         }
+        document.getElementById('ml-prediction').style.display = 'block';
+        if (!this.mlModel) this.initML(); // Ініціалізація, якщо не зроблено
+        
         const velocity = parseFloat(this.velocitySlider.value);
         const angle = parseFloat(this.angleSlider.value);
         const gravity = parseFloat(this.gravitySlider.value);
         const angleRad = angle * Math.PI / 180;
         const range = (velocity * velocity * Math.sin(2 * angleRad)) / gravity;
         const flightTime = (2 * velocity * Math.sin(angleRad)) / gravity;
+        
         document.getElementById('predicted-range').textContent = range.toFixed(2);
         document.getElementById('predicted-time').textContent = flightTime.toFixed(2);
         document.getElementById('model-accuracy').textContent = '100% (формула)';
-        document.getElementById('ml-prediction').style.display = 'block';
     }
 
-    saveTrainingData() { /* ... */ }
-    async trainModel() { /* ... */ }
+    initML() {
+        this.mlModel = tf.sequential({
+            layers: [
+                tf.layers.dense({inputShape: [4], units: 10, activation: 'relu'}),
+                tf.layers.dense({units: 10, activation: 'relu'}),
+                tf.layers.dense({units: 2})
+            ]
+        });
+        this.mlModel.compile({ optimizer: 'adam', loss: 'meanSquaredError' });
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Невелика затримка, щоб фізичний рушій встиг ініціалізуватися
-    setTimeout(() => {
-        new MechanicsSimulation();
-    }, 500);
+    new MechanicsSimulation();
 });
