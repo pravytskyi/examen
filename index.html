@@ -4,9 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Механіка у віртуальному світі</title>
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/n5ro/aframe-physics-system@v4.0.1/dist/aframe-physics-system.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.19.0/dist/tf.min.js"></script>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -78,11 +78,20 @@
     </div>
 
     <!-- VR сцена -->
-    <a-scene physics="gravity: -9.8; debug: false" background="color: #87CEEB">
+    <a-scene physics="driver: local; gravity: 0 -9.8 0; debug: false" background="color: #87CEEB">
+        <!-- Активи -->
+        <a-assets>
+            <a-mixin id="physics-body" 
+                     material="color: #FF6B6B" 
+                     dynamic-body="linearDamping: 0.01; angularDamping: 0.01"></a-mixin>
+        </a-assets>
+        
         <!-- Камера з контролерами -->
         <a-entity id="cameraRig" position="0 1.6 10">
             <a-camera look-controls wasd-controls>
-                <a-cursor visible="false"></a-cursor>
+                <a-cursor raycaster="objects: [dynamic-body], [static-body], .clickable"
+                         geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+                         material="color: black; shader: flat"></a-cursor>
             </a-camera>
         </a-entity>
 
@@ -93,6 +102,14 @@
         <!-- Земля -->
         <a-plane id="ground" position="0 0 0" rotation="-90 0 0" width="100" height="100" 
                  color="#7BC8A4" static-body></a-plane>
+        
+        <!-- Стіни для обмеження простору -->
+        <a-box position="0 5 -50" width="100" height="10" depth="0.5" 
+               color="#333" opacity="0.3" static-body></a-box>
+        <a-box position="50 5 0" width="0.5" height="10" depth="100" 
+               color="#333" opacity="0.3" static-body></a-box>
+        <a-box position="-50 5 0" width="0.5" height="10" depth="100" 
+               color="#333" opacity="0.3" static-body></a-box>
 
         <!-- Сітка координат -->
         <a-entity id="grid" position="0 0.01 0">
@@ -102,8 +119,8 @@
         <!-- Експеримент 1: Балістичний рух -->
         <a-entity id="projectile-experiment" visible="true">
             <a-sphere id="projectile" position="-10 1 0" radius="0.3" color="#FF6B6B" 
-                     dynamic-body mass="1">
-                <a-text value="Снаряд" position="0 0.5 0" align="center" width="3"></a-text>
+                     click-rotate>
+                <a-text value="Снаряд" position="0 0.5 0" align="center" width="3" color="#FFF"></a-text>
             </a-sphere>
             
             <!-- Траєкторія -->
@@ -122,20 +139,20 @@
                 <a-cylinder radius="0.02" height="2" color="#666" position="0 -1 0"></a-cylinder>
             </a-entity>
             <a-sphere id="pendulum-ball" position="0 3 0" radius="0.3" color="#FF6B6B" 
-                     dynamic-body mass="1">
-                <a-text value="Маятник" position="0 0.5 0" align="center" width="3"></a-text>
+                     click-rotate>
+                <a-text value="Маятник" position="0 0.5 0" align="center" width="3" color="#FFF"></a-text>
             </a-sphere>
         </a-entity>
 
         <!-- Експеримент 3: Зіткнення тіл -->
         <a-entity id="collision-experiment" visible="false">
             <a-box id="box1" position="-5 1 0" width="1" height="1" depth="1" 
-                   color="#FF6B6B" dynamic-body mass="1">
-                <a-text value="Тіло 1" position="0 0.8 0" align="center" width="3"></a-text>
+                   color="#FF6B6B" click-rotate>
+                <a-text value="Тіло 1" position="0 0.8 0" align="center" width="3" color="#FFF"></a-text>
             </a-box>
             <a-box id="box2" position="5 1 0" width="1" height="1" depth="1" 
-                   color="#4ECDC4" dynamic-body mass="1">
-                <a-text value="Тіло 2" position="0 0.8 0" align="center" width="3"></a-text>
+                   color="#4ECDC4" click-rotate>
+                <a-text value="Тіло 2" position="0 0.8 0" align="center" width="3" color="#FFF"></a-text>
             </a-box>
         </a-entity>
 
@@ -147,8 +164,8 @@
                        color="#95E1D3" static-body></a-box>
             </a-entity>
             <a-sphere id="energy-ball" position="-8 5 0" radius="0.3" color="#FF6B6B" 
-                     dynamic-body mass="1">
-                <a-text value="Куля" position="0 0.5 0" align="center" width="3"></a-text>
+                     click-rotate>
+                <a-text value="Куля" position="0 0.5 0" align="center" width="3" color="#FFF"></a-text>
             </a-sphere>
             
             <!-- Енергетична діаграма -->
