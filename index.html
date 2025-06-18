@@ -17,7 +17,6 @@
                 <option value="projectile">Балістичний рух</option>
                 <option value="pendulum">Математичний маятник</option>
                 <option value="collision">Зіткнення тіл</option>
-                <option value="energy">Збереження енергії</option>
             </select>
         </div>
 
@@ -63,33 +62,36 @@
             <h3>Поточні показники</h3>
             <div id="stats-content">
                 <p>Час: <span id="time">0</span> с</p>
-                <p>Швидкість: <span id="current-velocity">0</span> м/с</p>
-                <p>Висота: <span id="height">0</span> м</p>
                 <p>Кінетична енергія: <span id="kinetic-energy">0</span> Дж</p>
-                <p>Потенціальна енергія: <span id="potential-energy">0</span> Дж</p>
-                <p id="total-energy-p" style="display:none;">Сумарна енергія: <span id="total-energy">0</span> Дж</p>
-                <p id="cube-collisions-p" style="display:none;">Зіткнень кубів: <span id="cube-collisions">0</span></p>
-                <p id="wall-collisions-p" style="display:none;">Зіткнень зі стіною: <span id="wall-collisions">0</span></p>
+                <p id="collisions-p" style="display:none;">Зіткнень: <span id="collisions-count">0</span></p>
             </div>
         </div>
     </div>
 
-    <a-scene>
+    <a-scene background="color: #ECECEC">
         <a-entity position="0 1.6 15">
             <a-camera look-controls wasd-controls></a-camera>
         </a-entity>
 
-        <a-light type="ambient" color="#404040"></a-light>
-        <a-light type="directional" color="#ffffff" intensity="0.5" position="-1 2 1"></a-light>
+        <a-light type="ambient" color="#888"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="0.6" position="-1 2 1"></a-light>
 
         <a-plane position="0 0 0" rotation="-90 0 0" width="100" height="100" color="#7BC8A4"></a-plane>
-        <a-entity id="grid"></a-entity>
         
         <a-entity id="projectile-experiment" visible="true">
+             <a-entity id="cannon" position="-10 0.5 0" rotation="0 0 -45">
+                <a-cylinder color="#7A7A7A" height="0.5" radius="0.5" position="0 0.25 0"></a-cylinder>
+                <a-box color="#5A5A5A" width="2" height="0.2" depth="0.2" position="1 0.5 0"></a-box>
             </a-entity>
+            <a-sphere id="projectile" radius="0.3" color="#FF5733" position="-10 1 0"></a-sphere>
+            <a-entity id="trajectory"></a-entity>
+        </a-entity>
 
         <a-entity id="pendulum-experiment" visible="false">
-            </a-entity>
+            <a-sphere id="pendulum-anchor" radius="0.1" color="#000" position="0 5 0"></a-sphere>
+            <a-entity id="pendulum-string" line="start: 0 5 0; end: 0 3 0; color: #333"></a-entity>
+            <a-sphere id="pendulum-ball" radius="0.3" color="#4287f5" position="0 3 0"></a-sphere>
+        </a-entity>
 
         <a-entity id="collision-experiment" visible="false">
             <a-box id="box1" position="-5 0.5 0" width="1" height="1" depth="1" color="#FF5733"></a-box>
@@ -101,9 +103,8 @@
             <a-box id="wall-right" position="15 1 0" width="0.2" height="3" depth="3" color="#888888"></a-box>
         </a-entity>
 
-        <a-entity id="energy-experiment" visible="false">
-            </a-entity>
     </a-scene>
     <script src="script.js"></script>
+    <link rel="stylesheet" href="styles.css"> 
 </body>
 </html>
