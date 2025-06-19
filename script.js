@@ -18,7 +18,7 @@ class MechanicsSimulation {
     }
     
     init() {
-        // Отримання елементів керування
+        // ... (код отримання елементів керування без змін) ...
         this.experimentSelect = document.getElementById('experiment-select');
         this.mass1Slider = document.getElementById('mass1');
         this.mass2Slider = document.getElementById('mass2');
@@ -29,7 +29,7 @@ class MechanicsSimulation {
         this.startBtn = document.getElementById('start-btn');
         this.resetBtn = document.getElementById('reset-btn');
         
-        // Отримання елементів для виводу статистики
+        // ... (код отримання елементів статистики без змін) ...
         this.timeSpan = document.getElementById('time');
         this.velocitySpan = document.getElementById('current-velocity');
         this.heightSpan = document.getElementById('height');
@@ -42,6 +42,7 @@ class MechanicsSimulation {
         
         // Отримання ML елементів
         this.predictBtn = document.getElementById('predict-btn');
+        this.batchTrainBtn = document.getElementById('batch-train-btn'); // Нова кнопка
         this.dataPointsSpan = document.getElementById('data-points');
         this.predictionOutputSpan = document.getElementById('prediction-output');
         
@@ -50,7 +51,9 @@ class MechanicsSimulation {
         this.startBtn.addEventListener('click', () => this.toggleExperiment());
         this.resetBtn.addEventListener('click', () => this.resetExperiment());
         this.predictBtn.addEventListener('click', () => this.predictRange());
-        
+        this.batchTrainBtn.addEventListener('click', () => this.runBatchSimulations(30)); // Новий слухач
+
+        // ... (решта коду init без змін) ...
         const setupSlider = (sliderId, valueId) => {
             document.getElementById(sliderId).addEventListener('input', (e) => {
                 document.getElementById(valueId).textContent = e.target.value;
@@ -66,6 +69,67 @@ class MechanicsSimulation {
         this.switchExperiment('projectile');
     }
     
+    // --- НОВИЙ МЕТОД: Пакетна симуляція для навчання ---
+    async runBatchSimulations(count) {
+        if (this.isRunning) {
+            alert('Будь ласка, зупиніть поточний експеримент перед навчанням.');
+            return;
+        }
+
+        console.log(`Запуск ${count} симуляцій для навчання...`);
+        this.batchTrainBtn.textContent = 'Навчання...';
+        this.batchTrainBtn.disabled = true;
+        this.predictBtn.disabled = true;
+
+        const vMin = parseFloat(this.velocitySlider.min);
+        const vMax = parseFloat(this.velocitySlider.max);
+        const aMin = parseFloat(this.angleSlider.min);
+        const aMax = parseFloat(this.angleSlider.max);
+
+        for (let i = 0; i < count; i++) {
+            const randomVelocity = Math.random() * (vMax - vMin) + vMin;
+            const randomAngle = Math.random() * (aMax - aMin) + aMin;
+
+            const range = this.calculateProjectileRange(randomVelocity, randomAngle);
+
+            this.trainingData.inputs.push([randomVelocity, randomAngle]);
+            this.trainingData.outputs.push([range]);
+        }
+        
+        this.dataPointsSpan.textContent = this.trainingData.inputs.length;
+        console.log(`Зібрано ${this.trainingData.inputs.length} точок даних.`);
+
+        await this.trainModel(); // Чекаємо завершення навчання
+
+        this.batchTrainBtn.textContent = 'Прискорити навчання';
+        this.batchTrainBtn.disabled = false;
+        this.predictBtn.disabled = false;
+        this.predictionOutputSpan.textContent = 'Модель оновлено!';
+    }
+
+    // --- НОВИЙ МЕТОД: Розрахунок дальності без візуалізації ---
+    calculateProjectileRange(velocity, angleDegrees) {
+        const angleRad = angleDegrees * Math.PI / 180;
+        const gravity = parseFloat(this.gravitySlider.value);
+        const dt = 0.016; // Той самий крок часу
+
+        const startX = -10, startY = 1;
+        let x = startX, y = startY;
+        let vx = velocity * Math.cos(angleRad);
+        let vy = velocity * Math.sin(angleRad);
+
+        while (y > 0.3) {
+            x += vx * dt;
+            y += vy * dt;
+            vy -= gravity * dt;
+        }
+        
+        return x - startX;
+    }
+    
+    // --- Інші методи класу (з попереднього кроку) ---
+    // createModel, trainModel, predictRange, switchExperiment, etc.
+    // ... (весь інший код класу залишається без змін) ...
     // --- ML: Створення моделі ---
     createModel() {
         const model = tf.sequential();
