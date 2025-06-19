@@ -5,7 +5,16 @@ class MechanicsSimulation {
         this.animationFrame = null;
         this.startTime = 0;
         
+        // ML-специфічні властивості
+        this.trainingData = { inputs: [], outputs: [] };
+        this.model = null;
+        this.lastProjectileParams = null;
+        
+        // Властивості для траєкторії
+        this.trajectoryPoints = [];
+
         this.init();
+        this.createModel();
     }
     
     init() {
@@ -31,10 +40,16 @@ class MechanicsSimulation {
         this.collisionsP = document.getElementById('collisions-p');
         this.collisionsSpan = document.getElementById('collisions-count');
         
+        // Отримання ML елементів
+        this.predictBtn = document.getElementById('predict-btn');
+        this.dataPointsSpan = document.getElementById('data-points');
+        this.predictionOutputSpan = document.getElementById('prediction-output');
+        
         // Слухачі подій
         this.experimentSelect.addEventListener('change', (e) => this.switchExperiment(e.target.value));
         this.startBtn.addEventListener('click', () => this.toggleExperiment());
         this.resetBtn.addEventListener('click', () => this.resetExperiment());
+        this.predictBtn.addEventListener('click', () => this.predictRange());
         
         const setupSlider = (sliderId, valueId) => {
             document.getElementById(sliderId).addEventListener('input', (e) => {
@@ -51,10 +66,65 @@ class MechanicsSimulation {
         this.switchExperiment('projectile');
     }
     
+    // --- ML: Створення моделі ---
+    createModel() {
+        const model = tf.sequential();
+        model.add(tf.layers.dense({ units: 10, inputShape: [2], activation: 'relu' }));
+        model.add(tf.layers.dense({ units: 1, activation: 'linear' }));
+        model.compile({ optimizer: 'adam', loss: 'meanSquaredError' });
+        this.model = model;
+    }
+    
+    // --- ML: Навчання моделі ---
+    async trainModel() {
+        if (this.trainingData.inputs.length < 3) {
+             console.log('Потрібно більше даних для навчання.');
+             return;
+        }
+        
+        const inputs = tf.tensor2d(this.trainingData.inputs);
+        const outputs = tf.tensor2d(this.trainingData.outputs);
+        
+        console.log('Починаємо навчання моделі...');
+        await this.model.fit(inputs, outputs, {
+            epochs: 50,
+            shuffle: true,
+            callbacks: {
+                onEpochEnd: (epoch, logs) => {
+                    console.log(`Епоха ${epoch + 1}: Втрати = ${logs.loss.toFixed(4)}`);
+                }
+            }
+        });
+        console.log('Навчання завершено.');
+    }
+    
+    // --- ML: Прогнозування ---
+    predictRange() {
+        if (!this.model) {
+            this.predictionOutputSpan.textContent = "Модель не створена.";
+            return;
+        }
+        if (this.trainingData.inputs.length === 0) {
+            this.predictionOutputSpan.textContent = "Навчіть модель, запустивши симуляцію.";
+            return;
+        }
+        
+        const velocity = parseFloat(this.velocitySlider.value);
+        const angle = parseFloat(this.angleSlider.value);
+        
+        const inputTensor = tf.tensor2d([[velocity, angle]]);
+        const prediction = this.model.predict(inputTensor);
+        const range = prediction.dataSync()[0];
+        
+        this.predictionOutputSpan.textContent = `${range.toFixed(2)} м`;
+    }
+
     switchExperiment(experiment) {
         this.resetExperiment();
         this.currentExperiment = experiment;
         
+        document.getElementById('ml-prediction').style.display = 'none';
+
         const allExperiments = ['projectile-experiment', 'pendulum-experiment', 'collision-experiment'];
         allExperiments.forEach(id => document.getElementById(id).setAttribute('visible', false));
         document.getElementById(`${experiment}-experiment`).setAttribute('visible', true);
@@ -72,6 +142,7 @@ class MechanicsSimulation {
                 document.getElementById('velocity-group').style.display = 'block';
                 document.getElementById('angle-group').style.display = 'block';
                 this.totalEnergyP.style.display = 'block';
+                document.getElementById('ml-prediction').style.display = 'block';
                 break;
             case 'pendulum':
                 document.getElementById('length-group').style.display = 'block';
@@ -104,12 +175,17 @@ class MechanicsSimulation {
 
     startProjectile() {
         const projectile = document.getElementById('projectile');
+        const trajectoryEl = document.getElementById('trajectory');
         const velocity = parseFloat(this.velocitySlider.value);
-        const angle = parseFloat(this.angleSlider.value) * Math.PI / 180;
+        const angleRad = parseFloat(this.angleSlider.value) * Math.PI / 180;
         
-        let x = -10, y = 1;
-        let vx = velocity * Math.cos(angle);
-        let vy = velocity * Math.sin(angle);
+        this.lastProjectileParams = { velocity: velocity, angle: parseFloat(this.angleSlider.value) };
+        this.trajectoryPoints = []; // Очищуємо попередню траєкторію
+        
+        const startX = -10, startY = 1;
+        let x = startX, y = startY;
+        let vx = velocity * Math.cos(angleRad);
+        let vy = velocity * Math.sin(angleRad);
 
         const animate = () => {
             if (!this.isRunning) return;
@@ -122,9 +198,16 @@ class MechanicsSimulation {
             
             projectile.setAttribute('position', `${x} ${y} 0`);
             
+            // --- Малювання траєкторії ---
+            this.trajectoryPoints.push(`${x} ${y} 0`);
+            trajectoryEl.setAttribute('line', 'path', this.trajectoryPoints.join(', '));
+            
             this.updateStats({ y, vx, vy });
             
-            if (y <= 0.3) { this.stopExperiment(); return; }
+            if (y <= 0.3) { 
+                this.stopExperiment({ finalX: x, startX: startX }); 
+                return;
+            }
             this.animationFrame = requestAnimationFrame(animate);
         };
         animate();
@@ -168,8 +251,6 @@ class MechanicsSimulation {
         const text1El = document.getElementById('text1');
         const text2El = document.getElementById('text2');
         
-        // --- ВИПРАВЛЕННЯ ТУТ ---
-        // Зчитуємо масу ОДИН РАЗ на початку симуляції.
         const m1 = parseFloat(this.mass1Slider.value);
         const m2 = parseFloat(this.mass2Slider.value);
         const initial_v = parseFloat(this.velocitySlider.value);
@@ -188,7 +269,6 @@ class MechanicsSimulation {
         const animate = () => {
             if (!this.isRunning) return;
 
-            // Тепер маси m1 та m2 є константами всередині цього циклу
             for (let i = 0; i < stepsPerFrame; i++) {
                 if (x2 - x1 <= boxWidth && v1 > v2) {
                     collisionCount++;
@@ -214,7 +294,6 @@ class MechanicsSimulation {
             text2El.object3D.position.x = x2;
             
             this.collisionsSpan.textContent = collisionCount;
-            // Передаємо m1 та m2 в статистику
             this.updateStats({ v1, v2, m1, m2 });
 
             this.animationFrame = requestAnimationFrame(animate);
@@ -222,18 +301,33 @@ class MechanicsSimulation {
         animate();
     }
 
-    stopExperiment() {
+    stopExperiment(stopData) {
+        if (!this.isRunning) return;
+
         this.isRunning = false;
         this.startBtn.textContent = 'Старт';
         if (this.animationFrame) {
             cancelAnimationFrame(this.animationFrame);
             this.animationFrame = null;
         }
+        
+        // --- ML: Збір даних ---
+        if (this.currentExperiment === 'projectile' && this.lastProjectileParams && stopData) {
+            const range = stopData.finalX - stopData.startX;
+            console.log(`Нова точка даних: V=${this.lastProjectileParams.velocity}, A=${this.lastProjectileParams.angle}, Range=${range}`);
+            
+            this.trainingData.inputs.push([this.lastProjectileParams.velocity, this.lastProjectileParams.angle]);
+            this.trainingData.outputs.push([range]);
+            this.dataPointsSpan.textContent = this.trainingData.inputs.length;
+            
+            this.lastProjectileParams = null;
+            this.trainModel(); // Запускаємо навчання в фоні
+        }
     }
     
     resetExperiment() {
         this.stopExperiment();
-        document.getElementById('trajectory').innerHTML = '';
+        document.getElementById('trajectory').setAttribute('line', 'path', '');
         document.getElementById('projectile').setAttribute('position', '-10 1 0');
         document.getElementById('pendulum-ball').setAttribute('position', '0 3 0');
         document.getElementById('pendulum-string').setAttribute('line', 'start: 0 5 0; end: 0 3 0');
@@ -281,12 +375,10 @@ class MechanicsSimulation {
                 ke = 0.5 * m_pend * velocity * velocity;
                 break;
             case 'collision':
-                // --- ВИПРАВЛЕННЯ ТУТ ---
-                // Тепер ми беремо маси з об'єкта `data`, що передається з циклу
                 const { m1, m2, v1, v2 } = data;
                 height = 0;
                 ke = 0.5 * m1 * v1*v1 + 0.5 * m2 * v2*v2;
-                pe = (m1 + m2) * g * 0.5; // Невелика потенційна енергія, бо вони не на нульовій висоті
+                pe = (m1 + m2) * g * 0.5;
                 velocity = (Math.abs(v1) + Math.abs(v2)) / 2;
                 break;
         }
