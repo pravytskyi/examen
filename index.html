@@ -74,9 +74,12 @@
         
         <div id="ml-prediction">
             <h3>Прогнозування дальності (ML)</h3>
-            <p>Запустіть симуляцію кілька разів з різними параметрами, щоб навчити модель.</p>
+            <p>Запустіть симуляцію кілька разів або використайте прискорене навчання.</p>
             <p>Навчено на: <span id="data-points">0</span> прикладах</p>
-            <button id="predict-btn" class="btn-ml">Спрогнозувати дальність</button>
+            <div class="controls">
+                <button id="batch-train-btn" class="btn-ml">Прискорити навчання</button>
+                <button id="predict-btn" class="btn-ml">Спрогнозувати</button>
+            </div>
             <p>Прогноз: <span id="prediction-output">...</span> м</p>
         </div>
     </div>
