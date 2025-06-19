@@ -53,7 +53,7 @@ class MechanicsSimulation {
         this.startBtn.addEventListener('click', () => this.toggleExperiment());
         this.resetBtn.addEventListener('click', () => this.resetExperiment());
         this.predictBtn.addEventListener('click', () => this.predictRange());
-        this.batchTrainBtn.addEventListener('click', () => this.runBatchSimulations(3000));
+        this.batchTrainBtn.addEventListener('click', () => this.runBatchSimulations(30));
 
         const setupSlider = (sliderId, valueId) => {
             document.getElementById(sliderId).addEventListener('input', (e) => {
