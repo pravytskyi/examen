@@ -12,6 +12,7 @@ class MechanicsSimulation {
         
         // Властивості для траєкторії
         this.trajectoryPoints = [];
+        this.flightsCount = 0; // Лічильник прольотів
 
         this.init();
         this.createModel();
@@ -29,7 +30,7 @@ class MechanicsSimulation {
         this.startBtn = document.getElementById('start-btn');
         this.resetBtn = document.getElementById('reset-btn');
         
-        // ... (код отримання елементів статистики без змін) ...
+        // ... (код отримання елементів статистики з доданим flightsCount) ...
         this.timeSpan = document.getElementById('time');
         this.velocitySpan = document.getElementById('current-velocity');
         this.heightSpan = document.getElementById('height');
@@ -39,6 +40,7 @@ class MechanicsSimulation {
         this.totalEnergySpan = document.getElementById('total-energy');
         this.collisionsP = document.getElementById('collisions-p');
         this.collisionsSpan = document.getElementById('collisions-count');
+        this.flightsCountSpan = document.getElementById('flights-count'); // Отримання елементу лічильника прольотів
         
         // Отримання ML елементів
         this.predictBtn = document.getElementById('predict-btn');
@@ -51,7 +53,7 @@ class MechanicsSimulation {
         this.startBtn.addEventListener('click', () => this.toggleExperiment());
         this.resetBtn.addEventListener('click', () => this.resetExperiment());
         this.predictBtn.addEventListener('click', () => this.predictRange());
-        this.batchTrainBtn.addEventListener('click', () => this.runBatchSimulations(30)); 
+        this.batchTrainBtn.addEventListener('click', () => this.runBatchSimulations(30));
 
         const setupSlider = (sliderId, valueId) => {
             document.getElementById(sliderId).addEventListener('input', (e) => {
@@ -75,7 +77,6 @@ class MechanicsSimulation {
             return;
         }
 
-        // --- ВИПРАВЛЕННЯ 1: Перевірка на нульову гравітацію ---
         const gravity = parseFloat(this.gravitySlider.value);
         if (gravity <= 0) {
             alert('Прискорити навчання неможливо при гравітації, що дорівнює або менша за нуль.');
@@ -87,7 +88,6 @@ class MechanicsSimulation {
         this.batchTrainBtn.disabled = true;
         this.predictBtn.disabled = true;
 
-        // --- ВИПРАВЛЕННЯ 2: Блок try...finally для гарантованого відновлення кнопок ---
         try {
             const vMin = parseFloat(this.velocitySlider.min);
             const vMax = parseFloat(this.velocitySlider.max);
@@ -122,7 +122,7 @@ class MechanicsSimulation {
 
     // --- Розрахунок дальності без візуалізації ---
     calculateProjectileRange(velocity, angleDegrees, gravity) {
-        if (gravity <= 0) return 0; // Додаткова перевірка
+        if (gravity <= 0) return 0;
 
         const angleRad = angleDegrees * Math.PI / 180;
         const dt = 0.016;
@@ -132,8 +132,7 @@ class MechanicsSimulation {
         let vx = velocity * Math.cos(angleRad);
         let vy = velocity * Math.sin(angleRad);
 
-        // Обмежимо кількість ітерацій, щоб уникнути випадкових нескінченних циклів
-        for (let i = 0; i < 10000; i++) { 
+        for (let i = 0; i < 10000; i++) {
             x += vx * dt;
             y += vy * dt;
             vy -= gravity * dt;
@@ -142,10 +141,10 @@ class MechanicsSimulation {
             }
         }
         
-        return x - startX; // Повертаємо результат, навіть якщо тіло не впало за ліміт ітерацій
+        return x - startX;
     }
     
-    // --- Інші методи класу (без змін) ---
+    // --- Інші методи класу (без змін, крім оновлення stopExperiment) ---
     createModel() {
         const model = tf.sequential();
         model.add(tf.layers.dense({ units: 10, inputShape: [2], activation: 'relu' }));
@@ -282,8 +281,8 @@ class MechanicsSimulation {
             
             this.updateStats({ y, vx, vy });
             
-            if (y <= 0.3 && gravity > 0) { 
-                this.stopExperiment({ finalX: x, startX: startX }); 
+            if (y <= 0.3 && gravity > 0) {
+                this.stopExperiment({ finalX: x, startX: startX });
                 return;
             }
             this.animationFrame = requestAnimationFrame(animate);
@@ -398,6 +397,8 @@ class MechanicsSimulation {
             
             this.lastProjectileParams = null;
             this.trainModel();
+            this.flightsCount++; // Інкрементуємо лічильник прольотів
+            this.flightsCountSpan.textContent = this.flightsCount; // Оновлюємо відображення
         }
     }
     
@@ -413,6 +414,8 @@ class MechanicsSimulation {
         document.getElementById('text2').setAttribute('position', '5 1.7 0');
         
         this.updateStats(null, true);
+        this.flightsCount = 0; // Скидаємо лічильник прольотів
+        this.flightsCountSpan.textContent = this.flightsCount; // Оновлюємо відображення
     }
     
     updateStats(data, forceReset = false) {
