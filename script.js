@@ -18,7 +18,6 @@ class MechanicsSimulation {
     }
     
     init() {
-        // ... (код отримання елементів керування без змін) ...
         this.experimentSelect = document.getElementById('experiment-select');
         this.mass1Slider = document.getElementById('mass1');
         this.mass2Slider = document.getElementById('mass2');
@@ -29,7 +28,6 @@ class MechanicsSimulation {
         this.startBtn = document.getElementById('start-btn');
         this.resetBtn = document.getElementById('reset-btn');
         
-        // --- ОНОВЛЕНО ---
         // Отримання елементів статистики
         this.timeSpan = document.getElementById('time');
         this.velocitySpan = document.getElementById('current-velocity');
@@ -379,7 +377,6 @@ class MechanicsSimulation {
         animate();
     }
 
-    // --- ОНОВЛЕНО ---
     stopExperiment(stopData) {
         if (!this.isRunning) return;
 
@@ -405,7 +402,6 @@ class MechanicsSimulation {
         }
     }
     
-    // --- ОНОВЛЕНО ---
     resetExperiment() {
         this.stopExperiment();
         document.getElementById('trajectory').setAttribute('line', 'path', '');
