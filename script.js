@@ -12,7 +12,6 @@ class MechanicsSimulation {
         
         // Властивості для траєкторії
         this.trajectoryPoints = [];
-        this.flightsCount = 0; // Лічильник прольотів
 
         this.init();
         this.createModel();
@@ -30,7 +29,8 @@ class MechanicsSimulation {
         this.startBtn = document.getElementById('start-btn');
         this.resetBtn = document.getElementById('reset-btn');
         
-        // ... (код отримання елементів статистики з доданим flightsCount) ...
+        // --- ОНОВЛЕНО ---
+        // Отримання елементів статистики
         this.timeSpan = document.getElementById('time');
         this.velocitySpan = document.getElementById('current-velocity');
         this.heightSpan = document.getElementById('height');
@@ -40,7 +40,7 @@ class MechanicsSimulation {
         this.totalEnergySpan = document.getElementById('total-energy');
         this.collisionsP = document.getElementById('collisions-p');
         this.collisionsSpan = document.getElementById('collisions-count');
-        this.flightsCountSpan = document.getElementById('flights-count'); // Отримання елементу лічильника прольотів
+        this.lastRangeSpan = document.getElementById('last-range'); // Отримуємо елемент для дальності
         
         // Отримання ML елементів
         this.predictBtn = document.getElementById('predict-btn');
@@ -132,7 +132,7 @@ class MechanicsSimulation {
         let vx = velocity * Math.cos(angleRad);
         let vy = velocity * Math.sin(angleRad);
 
-        for (let i = 0; i < 10000; i++) {
+        for (let i = 0; i < 10000; i++) { 
             x += vx * dt;
             y += vy * dt;
             vy -= gravity * dt;
@@ -144,7 +144,7 @@ class MechanicsSimulation {
         return x - startX;
     }
     
-    // --- Інші методи класу (без змін, крім оновлення stopExperiment) ---
+    // --- Інші методи класу ---
     createModel() {
         const model = tf.sequential();
         model.add(tf.layers.dense({ units: 10, inputShape: [2], activation: 'relu' }));
@@ -257,6 +257,7 @@ class MechanicsSimulation {
         
         this.lastProjectileParams = { velocity: velocity, angle: parseFloat(this.angleSlider.value) };
         this.trajectoryPoints = [];
+        trajectoryEl.setAttribute('line', 'path', ''); // Очищуємо траєкторію перед новим запуском
         
         const startX = -10, startY = 1;
         let x = startX, y = startY;
@@ -281,8 +282,8 @@ class MechanicsSimulation {
             
             this.updateStats({ y, vx, vy });
             
-            if (y <= 0.3 && gravity > 0) {
-                this.stopExperiment({ finalX: x, startX: startX });
+            if (y <= 0.3 && gravity > 0) { 
+                this.stopExperiment({ finalX: x, startX: startX }); 
                 return;
             }
             this.animationFrame = requestAnimationFrame(animate);
@@ -378,6 +379,7 @@ class MechanicsSimulation {
         animate();
     }
 
+    // --- ОНОВЛЕНО ---
     stopExperiment(stopData) {
         if (!this.isRunning) return;
 
@@ -391,17 +393,19 @@ class MechanicsSimulation {
         if (this.currentExperiment === 'projectile' && this.lastProjectileParams && stopData) {
             const range = stopData.finalX - stopData.startX;
             
+            // Оновлюємо UI з реальною дальністю
+            this.lastRangeSpan.textContent = range.toFixed(2);
+            
             this.trainingData.inputs.push([this.lastProjectileParams.velocity, this.lastProjectileParams.angle]);
             this.trainingData.outputs.push([range]);
             this.dataPointsSpan.textContent = this.trainingData.inputs.length;
             
             this.lastProjectileParams = null;
             this.trainModel();
-            this.flightsCount++; // Інкрементуємо лічильник прольотів
-            this.flightsCountSpan.textContent = this.flightsCount; // Оновлюємо відображення
         }
     }
     
+    // --- ОНОВЛЕНО ---
     resetExperiment() {
         this.stopExperiment();
         document.getElementById('trajectory').setAttribute('line', 'path', '');
@@ -414,8 +418,8 @@ class MechanicsSimulation {
         document.getElementById('text2').setAttribute('position', '5 1.7 0');
         
         this.updateStats(null, true);
-        this.flightsCount = 0; // Скидаємо лічильник прольотів
-        this.flightsCountSpan.textContent = this.flightsCount; // Оновлюємо відображення
+        this.lastRangeSpan.textContent = '0.00'; // Скидаємо показник дальності
+        this.predictionOutputSpan.textContent = '...'; // Скидаємо прогноз
     }
     
     updateStats(data, forceReset = false) {
