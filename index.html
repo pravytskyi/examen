@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Механіка у віртуальному світі</title>
     <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -70,6 +71,14 @@
                 <p id="collisions-p" style="display:none;">Зіткнень: <span id="collisions-count">0</span></p>
             </div>
         </div>
+        
+        <div id="ml-prediction">
+            <h3>Прогнозування дальності (ML)</h3>
+            <p>Запустіть симуляцію кілька разів з різними параметрами, щоб навчити модель.</p>
+            <p>Навчено на: <span id="data-points">0</span> прикладах</p>
+            <button id="predict-btn" class="btn-ml">Спрогнозувати дальність</button>
+            <p>Прогноз: <span id="prediction-output">...</span> м</p>
+        </div>
     </div>
 
     <a-scene background="color: #ECECEC">
@@ -86,7 +95,7 @@
                 <a-box color="#5A5A5A" width="2" height="0.2" depth="0.2" position="1 0.5 0"></a-box>
             </a-entity>
             <a-sphere id="projectile" radius="0.3" color="#FF5733" position="-10 1 0"></a-sphere>
-            <a-entity id="trajectory"></a-entity>
+            <a-entity id="trajectory" line="color: #FF5733; width: 0.05"></a-entity>
         </a-entity>
         <a-entity id="pendulum-experiment" visible="false">
             <a-sphere id="pendulum-anchor" radius="0.1" color="#000" position="0 5 0"></a-sphere>
