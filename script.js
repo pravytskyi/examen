@@ -42,7 +42,7 @@ class MechanicsSimulation {
         
         // Отримання ML елементів
         this.predictBtn = document.getElementById('predict-btn');
-        this.batchTrainBtn = document.getElementById('batch-train-btn'); // Нова кнопка
+        this.batchTrainBtn = document.getElementById('batch-train-btn');
         this.dataPointsSpan = document.getElementById('data-points');
         this.predictionOutputSpan = document.getElementById('prediction-output');
         
@@ -51,9 +51,8 @@ class MechanicsSimulation {
         this.startBtn.addEventListener('click', () => this.toggleExperiment());
         this.resetBtn.addEventListener('click', () => this.resetExperiment());
         this.predictBtn.addEventListener('click', () => this.predictRange());
-        this.batchTrainBtn.addEventListener('click', () => this.runBatchSimulations(30)); // Новий слухач
+        this.batchTrainBtn.addEventListener('click', () => this.runBatchSimulations(30)); 
 
-        // ... (решта коду init без змін) ...
         const setupSlider = (sliderId, valueId) => {
             document.getElementById(sliderId).addEventListener('input', (e) => {
                 document.getElementById(valueId).textContent = e.target.value;
@@ -69,10 +68,17 @@ class MechanicsSimulation {
         this.switchExperiment('projectile');
     }
     
-    // --- НОВИЙ МЕТОД: Пакетна симуляція для навчання ---
+    // --- Пакетна симуляція для навчання ---
     async runBatchSimulations(count) {
         if (this.isRunning) {
             alert('Будь ласка, зупиніть поточний експеримент перед навчанням.');
+            return;
+        }
+
+        // --- ВИПРАВЛЕННЯ 1: Перевірка на нульову гравітацію ---
+        const gravity = parseFloat(this.gravitySlider.value);
+        if (gravity <= 0) {
+            alert('Прискорити навчання неможливо при гравітації, що дорівнює або менша за нуль.');
             return;
         }
 
@@ -81,56 +87,65 @@ class MechanicsSimulation {
         this.batchTrainBtn.disabled = true;
         this.predictBtn.disabled = true;
 
-        const vMin = parseFloat(this.velocitySlider.min);
-        const vMax = parseFloat(this.velocitySlider.max);
-        const aMin = parseFloat(this.angleSlider.min);
-        const aMax = parseFloat(this.angleSlider.max);
-
-        for (let i = 0; i < count; i++) {
-            const randomVelocity = Math.random() * (vMax - vMin) + vMin;
-            const randomAngle = Math.random() * (aMax - aMin) + aMin;
-
-            const range = this.calculateProjectileRange(randomVelocity, randomAngle);
-
-            this.trainingData.inputs.push([randomVelocity, randomAngle]);
-            this.trainingData.outputs.push([range]);
+        // --- ВИПРАВЛЕННЯ 2: Блок try...finally для гарантованого відновлення кнопок ---
+        try {
+            const vMin = parseFloat(this.velocitySlider.min);
+            const vMax = parseFloat(this.velocitySlider.max);
+            const aMin = parseFloat(this.angleSlider.min);
+            const aMax = parseFloat(this.angleSlider.max);
+    
+            for (let i = 0; i < count; i++) {
+                const randomVelocity = Math.random() * (vMax - vMin) + vMin;
+                const randomAngle = Math.random() * (aMax - aMin) + aMin;
+    
+                const range = this.calculateProjectileRange(randomVelocity, randomAngle, gravity);
+    
+                this.trainingData.inputs.push([randomVelocity, randomAngle]);
+                this.trainingData.outputs.push([range]);
+            }
+            
+            this.dataPointsSpan.textContent = this.trainingData.inputs.length;
+            console.log(`Зібрано ${this.trainingData.inputs.length} точок даних.`);
+    
+            await this.trainModel();
+    
+            this.predictionOutputSpan.textContent = 'Модель оновлено!';
+        } catch (error) {
+            console.error("Помилка під час прискореного навчання:", error);
+            this.predictionOutputSpan.textContent = 'Сталася помилка.';
+        } finally {
+            this.batchTrainBtn.textContent = 'Прискорити навчання';
+            this.batchTrainBtn.disabled = false;
+            this.predictBtn.disabled = false;
         }
-        
-        this.dataPointsSpan.textContent = this.trainingData.inputs.length;
-        console.log(`Зібрано ${this.trainingData.inputs.length} точок даних.`);
-
-        await this.trainModel(); // Чекаємо завершення навчання
-
-        this.batchTrainBtn.textContent = 'Прискорити навчання';
-        this.batchTrainBtn.disabled = false;
-        this.predictBtn.disabled = false;
-        this.predictionOutputSpan.textContent = 'Модель оновлено!';
     }
 
-    // --- НОВИЙ МЕТОД: Розрахунок дальності без візуалізації ---
-    calculateProjectileRange(velocity, angleDegrees) {
+    // --- Розрахунок дальності без візуалізації ---
+    calculateProjectileRange(velocity, angleDegrees, gravity) {
+        if (gravity <= 0) return 0; // Додаткова перевірка
+
         const angleRad = angleDegrees * Math.PI / 180;
-        const gravity = parseFloat(this.gravitySlider.value);
-        const dt = 0.016; // Той самий крок часу
+        const dt = 0.016;
 
         const startX = -10, startY = 1;
         let x = startX, y = startY;
         let vx = velocity * Math.cos(angleRad);
         let vy = velocity * Math.sin(angleRad);
 
-        while (y > 0.3) {
+        // Обмежимо кількість ітерацій, щоб уникнути випадкових нескінченних циклів
+        for (let i = 0; i < 10000; i++) { 
             x += vx * dt;
             y += vy * dt;
             vy -= gravity * dt;
+            if (y <= 0.3) {
+                return x - startX;
+            }
         }
         
-        return x - startX;
+        return x - startX; // Повертаємо результат, навіть якщо тіло не впало за ліміт ітерацій
     }
     
-    // --- Інші методи класу (з попереднього кроку) ---
-    // createModel, trainModel, predictRange, switchExperiment, etc.
-    // ... (весь інший код класу залишається без змін) ...
-    // --- ML: Створення моделі ---
+    // --- Інші методи класу (без змін) ---
     createModel() {
         const model = tf.sequential();
         model.add(tf.layers.dense({ units: 10, inputShape: [2], activation: 'relu' }));
@@ -139,7 +154,6 @@ class MechanicsSimulation {
         this.model = model;
     }
     
-    // --- ML: Навчання моделі ---
     async trainModel() {
         if (this.trainingData.inputs.length < 3) {
              console.log('Потрібно більше даних для навчання.');
@@ -162,7 +176,6 @@ class MechanicsSimulation {
         console.log('Навчання завершено.');
     }
     
-    // --- ML: Прогнозування ---
     predictRange() {
         if (!this.model) {
             this.predictionOutputSpan.textContent = "Модель не створена.";
@@ -244,7 +257,7 @@ class MechanicsSimulation {
         const angleRad = parseFloat(this.angleSlider.value) * Math.PI / 180;
         
         this.lastProjectileParams = { velocity: velocity, angle: parseFloat(this.angleSlider.value) };
-        this.trajectoryPoints = []; // Очищуємо попередню траєкторію
+        this.trajectoryPoints = [];
         
         const startX = -10, startY = 1;
         let x = startX, y = startY;
@@ -258,17 +271,18 @@ class MechanicsSimulation {
             
             x += vx * dt;
             y += vy * dt;
-            vy -= gravity * dt;
+            if (gravity > 0) {
+                 vy -= gravity * dt;
+            }
             
             projectile.setAttribute('position', `${x} ${y} 0`);
             
-            // --- Малювання траєкторії ---
             this.trajectoryPoints.push(`${x} ${y} 0`);
             trajectoryEl.setAttribute('line', 'path', this.trajectoryPoints.join(', '));
             
             this.updateStats({ y, vx, vy });
             
-            if (y <= 0.3) { 
+            if (y <= 0.3 && gravity > 0) { 
                 this.stopExperiment({ finalX: x, startX: startX }); 
                 return;
             }
@@ -375,17 +389,15 @@ class MechanicsSimulation {
             this.animationFrame = null;
         }
         
-        // --- ML: Збір даних ---
         if (this.currentExperiment === 'projectile' && this.lastProjectileParams && stopData) {
             const range = stopData.finalX - stopData.startX;
-            console.log(`Нова точка даних: V=${this.lastProjectileParams.velocity}, A=${this.lastProjectileParams.angle}, Range=${range}`);
             
             this.trainingData.inputs.push([this.lastProjectileParams.velocity, this.lastProjectileParams.angle]);
             this.trainingData.outputs.push([range]);
             this.dataPointsSpan.textContent = this.trainingData.inputs.length;
             
             this.lastProjectileParams = null;
-            this.trainModel(); // Запускаємо навчання в фоні
+            this.trainModel();
         }
     }
     
